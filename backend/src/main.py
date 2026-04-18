@@ -1,7 +1,9 @@
 import asyncio
 import os
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional, List
 from .llama_service import get_sql_from_question, humanize_results
 from .database import execute_read_query
 from .materialized_views import refresh_materialized_views
@@ -10,7 +12,24 @@ from .question_router import route_question
 
 app = FastAPI(title="Deuna Contador de Bolsillo API")
 
+# ── CORS ──────────────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Modelos ───────────────────────────────────────────────────────────────────
 class QuestionRequest(BaseModel):
+    question: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class AmbiguityRequest(BaseModel):
     question: str
 
 def _get_refresh_minutes() -> int:
@@ -95,4 +114,78 @@ async def ask_ai(request: QuestionRequest):
         "data": data_results,
         "sql": sql,
         "source": source
+    }
+
+
+# ── Preguntas sugeridas ──────────────────────────────────────────────────────
+SUGGESTED_QUESTIONS: List[str] = [
+    "¿Cuánto vendí en total el día de hoy?",
+    "De lo que vendí esta semana, ¿cuál fue mi ganancia real?",
+    "¿Qué es lo que más me compran mis clientes?",
+    "¿Cuántos clientes frecuentes tengo registrados?",
+    "¿A qué hora se llena más mi local normalmente?",
+    "¿Cuánto dinero me entró por transferencias vs QR Deuna este mes?",
+    "¿Cuánto vendí el domingo pasado?",
+    "¿Gané más dinero este mes o el mes pasado?",
+    "¿Cuánto gasta la gente en promedio cada vez que me compra?",
+    "¿He conseguido clientes nuevos esta semana?",
+]
+
+@app.get("/chat/suggested-questions")
+def suggested_questions():
+    return {"questions": SUGGESTED_QUESTIONS}
+
+
+# ── Verificación de ambigüedad ───────────────────────────────────────────────
+_AMBIGUOUS_RULES = {
+    "ganancia": {
+        "title": "Pregunta ambigua detectada",
+        "message": '"Ganancia" puede significar utilidad neta, margen o ingresos brutos. Aclárala antes de consultar.',
+        "relatedQuestion": "¿Cuál fue mi ganancia real?",
+    },
+    "vendi": {
+        "title": "Pregunta ambigua detectada",
+        "message": "Podrías especificar un rango de tiempo cuando preguntas cuánto vendiste.",
+        "relatedQuestion": "¿Cuánto vendí en total el día de hoy?",
+    },
+    "clientes frecuentes": {
+        "title": "Pregunta ambigua detectada",
+        "message": '"Cliente frecuente" depende del criterio definido y puede requerir un período o umbral.',
+        "relatedQuestion": "¿Cuántos clientes frecuentes tengo registrados?",
+    },
+}
+
+@app.post("/chat/ambiguity-check")
+async def ambiguity_check(request: AmbiguityRequest):
+    normalized = request.question.lower()
+    for keyword, rule in _AMBIGUOUS_RULES.items():
+        if keyword in normalized:
+            return {
+                "shouldWarn": True,
+                "title": rule["title"],
+                "message": rule["message"],
+                "relatedQuestion": rule["relatedQuestion"],
+            }
+    return {"shouldWarn": False}
+
+
+# ── Login (autenticación simple para demo) ────────────────────────────────────
+# En producción se usaría un sistema real de autenticación con hashing de
+# contraseñas, JWT firmados, etc.  Esto es un placeholder funcional.
+_DEMO_USERS = {
+    "admin": {"password": "admin", "full_name": "Administrador DeUna", "role": "Admin"},
+    "comercio": {"password": "1234", "full_name": "Comercio Demo", "role": "Comercio"},
+}
+
+@app.post("/auth/login")
+async def login(request: LoginRequest):
+    username = request.username.strip()
+    user_record = _DEMO_USERS.get(username)
+    if not user_record or user_record["password"] != request.password:
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos.")
+    return {
+        "username": username,
+        "full_name": user_record["full_name"],
+        "role": user_record["role"],
+        "token": f"demo-token-{username}",
     }
