@@ -11,11 +11,16 @@ TEST_QUESTIONS = [
     "¿Quiénes son mis 5 mejores clientes por monto de compra?",
     "¿Qué categorías de productos me dan más ganancia?",
     "¿Cuántas transacciones fallidas hubo esta semana?",
-    "¿Cuál es el ticket promedio de venta en mi local?",
+    "¿Cuál es el valor promedio de mis ventas?",
     "¿Qué clientes no han comprado en los últimos 30 días?",
     "Compara las ventas de este lunes con el lunes anterior.",
     "¿Cuál es mi margen de ganancia neta total?",
-    "Dime el horario en el que más vendo."
+    "Dime el horario en el que más vendo.",
+    "¿Cuál es mi ciudad con más ventas?",
+    "¿Cuál es el método de pago más usado?",
+    "¿Cuántos clientes nuevos se registraron este mes?",
+    "¿Cuántas veces en promedio viene un cliente al mes?",
+    "¿Qué producto me recomiendas promocionar?"
 ]
 
 def run_tests():
