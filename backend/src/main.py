@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from .llama_service import get_sql_from_question, humanize_results
 from .database import execute_read_query
-from .cache_manager import obtener_de_cache, guardar_en_cache
+##from .cache_manager import obtener_de_cache, guardar_en_cache
 
 app = FastAPI(title="Deuna Contador de Bolsillo API")
 
@@ -18,14 +18,14 @@ async def ask_ai(request: QuestionRequest):
     user_query = request.question.strip()
     
     # 1. Intentar obtener del REPERTORIO (Caché)
-    cached_response = obtener_de_cache(user_query)
-    if cached_response:
-        return {
-            "answer": cached_response["human_answer"],
-            "chart": cached_response["chart"],
-            "sql": cached_response["sql"],
-            "source": "cache"
-        }
+    ## cached_response = obtener_de_cache(user_query)
+    ##if cached_response:
+       ## return {
+        ##    "answer": cached_response["human_answer"],
+        ##    "chart": cached_response["chart"],
+        ##    "sql": cached_response["sql"],
+        ##    "source": "cache"
+      ##  }
 
     # 2. Generar SQL con LLAMA 3.1 (Groq)
     ai_response = get_sql_from_question(user_query)
@@ -49,7 +49,7 @@ async def ask_ai(request: QuestionRequest):
     final_answer = humanize_results(user_query, data_results)
 
     # 5. Guardar en el REPERTORIO para la próxima vez
-    guardar_en_cache(user_query, sql, chart_type, final_answer)
+##   guardar_en_cache(user_query, sql, chart_type, final_answer)
 
     return {
         "answer": final_answer,
