@@ -17,6 +17,9 @@ def _resolve_db_path() -> str:
         return env_path
     return (DATA_DIR / "deuna_negocios.db").as_posix()
 
+def get_db_path() -> str:
+    return _resolve_db_path()
+
 def execute_read_query(sql_query: str):
     """
     Ejecuta una consulta SQL de lectura en la base de datos SQLite local.
@@ -47,6 +50,25 @@ def execute_read_query(sql_query: str):
         print(f"Detalle del error: {e}")
         return None
     
+    finally:
+        if conn:
+            conn.close()
+
+def execute_write_query(sql_query: str):
+    """
+    Ejecuta una consulta SQL de escritura (DDL/DML) en la base de datos.
+    """
+    conn = None
+    try:
+        conn = sqlite3.connect(_resolve_db_path())
+        cursor = conn.cursor()
+        cursor.executescript(sql_query)
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print("⚠️ Error de SQLite al escribir en la base de datos")
+        print(f"Detalle del error: {e}")
+        return False
     finally:
         if conn:
             conn.close()

@@ -6,21 +6,21 @@ URL = "http://127.0.0.1:8000/ask"
 
 # Las 15 preguntas de prueba (puedes añadir las que pide el reto)
 TEST_QUESTIONS = [
-    "¿Cuánto vendí en total el mes pasado?",
-    "¿Cuál fue mi producto más vendido en diciembre?",
-    "¿Quiénes son mis 5 mejores clientes por monto de compra?",
-    "¿Qué categorías de productos me dan más ganancia?",
-    "¿Cuántas transacciones fallidas hubo esta semana?",
-    "¿Cuál es el valor promedio de mis ventas?",
-    "¿Qué clientes no han comprado en los últimos 30 días?",
-    "Compara las ventas de este lunes con el lunes anterior.",
-    "¿Cuál es mi margen de ganancia neta total?",
-    "Dime el horario en el que más vendo.",
-    "¿Cuál es mi ciudad con más ventas?",
-    "¿Cuál es el método de pago más usado?",
-    "¿Cuántos clientes nuevos se registraron este mes?",
-    "¿Cuántas veces en promedio viene un cliente al mes?",
-    "¿Qué producto me recomiendas promocionar?"
+    "¿Cuánto vendí en total el día de hoy?",  #1
+    "De lo que vendí esta semana, ¿cuál fue mi ganancia real?", #2
+    "¿Qué es lo que más me compran mis clientes?",#3
+    "¿Cuántos clientes frecuentes tengo registrados?", #4
+    "¿A qué hora se llena más mi local normalmente?",#5
+    "¿Cuánto dinero me entró por transferencias vs QR Deuna este mes?",#6
+    "¿Cuánto vendí el domingo pasado?" ,#7
+    "¿Cuánto pago de arriendo y luz por el local?",#9
+    "¿Gané más dinero este mes o el mes pasado?",
+    "¿Qué clientes dejaron de venir últimamente?",
+    "Sé que vendo más bebidas, pero ¿qué categoría me deja más plata limpia?",
+    "¿Cuánto gasta la gente en promedio cada vez que me compra?",
+    "¿He conseguido clientes nuevos esta semana?",
+    "De esos clientes nuevos, ¿alguno ya me volvió a comprar?",
+    "¿Quién es mi mejor cliente y cuánto me ha hecho ganar?"
 ]
 
 def run_tests():

@@ -31,6 +31,83 @@ TABLAS DISPONIBLES EN SQLITE:
    - categoria_compra: Categoría del producto (Bebidas, Snacks, etc).
    - estado: Exitosa, Fallida, etc.
    - metodo_pago: QR Deuna, etc.
+
+TABLAS MATERIALIZADAS (PREFIERE ESTAS CUANDO APLIQUE):
+
+1. mv_sales_daily
+   - day: Fecha (YYYY-MM-DD).
+   - total_sales: Ventas totales del dia (solo Exitosa).
+   - total_profit: Ganancia neta del dia (solo Exitosa).
+   - txn_count: Numero de transacciones exitosas.
+
+2. mv_category_stats
+   - categoria_compra: Categoria del producto.
+   - txn_count: Numero de transacciones exitosas.
+   - total_sales: Ventas totales por categoria.
+   - total_profit: Ganancia neta por categoria.
+
+3. mv_payment_monthly
+   - month: Mes (YYYY-MM).
+   - metodo_pago: Metodo de pago.
+   - total_sales: Ventas totales por metodo y mes.
+
+4. mv_payment_stats
+   - metodo_pago: Metodo de pago.
+   - txn_count: Numero de transacciones exitosas.
+   - total_sales: Ventas totales por metodo.
+
+5. mv_hourly_txn
+   - hour: Hora del dia (0-23).
+   - txn_count: Numero de transacciones exitosas.
+
+6. mv_customers_segment
+   - segmento: Segmento del cliente.
+   - customer_count: Numero de clientes por segmento.
+
+7. mv_customer_last_txn
+   - id_cliente: Identificador del cliente.
+   - last_txn_date: Ultima fecha de compra.
+
+8. mv_customer_profit
+   - id_cliente: Identificador del cliente.
+   - total_profit: Ganancia neta total por cliente.
+
+9. mv_customer_sales
+   - id_cliente: Identificador del cliente.
+   - total_sales: Ventas totales por cliente.
+
+10. mv_customer_first_txn
+   - id_cliente: Identificador del cliente.
+   - first_txn_date: Primera fecha de compra.
+   - txn_count: Numero de compras exitosas.
+
+11. mv_customer_monthly_txn
+   - month: Mes (YYYY-MM).
+   - id_cliente: Identificador del cliente.
+   - txn_count: Numero de compras exitosas por mes.
+
+12. mv_customers_registration_daily
+   - day: Fecha de registro (YYYY-MM-DD).
+   - new_customers: Clientes registrados ese dia.
+
+13. mv_category_monthly
+   - month: Mes (YYYY-MM).
+   - categoria_compra: Categoria del producto.
+   - txn_count: Numero de transacciones exitosas.
+   - total_sales: Ventas totales por categoria y mes.
+   - total_profit: Ganancia neta por categoria y mes.
+
+14. mv_city_sales
+   - ciudad: Ciudad del comercio.
+   - total_sales: Ventas totales por ciudad.
+   - total_profit: Ganancia neta por ciudad.
+   - txn_count: Numero de transacciones exitosas.
+
+15. mv_txn_status_daily
+   - day: Fecha (YYYY-MM-DD).
+   - estado: Estado de la transaccion.
+   - txn_count: Numero de transacciones por estado.
+   - total_sales: Ventas totales por estado.
 """
 
 # 2. GLOSARIO DE NEGOCIO (Contexto Deuna)
@@ -73,6 +150,7 @@ REGLAS DE ORO:
 3. Filtra SIEMPRE por estado = 'Exitosa' a menos que pregunten por reversiones.
 4. Si la pregunta es imposible de responder con las tablas dadas, responde exactamente: NO_DATA.
 5. Para fechas en SQLite, usa date('now') o date('now', '-7 days') según corresponda.
+6. Para mejor rendimiento, usa las tablas mv_ cuando apliquen.
 
 {CHARTS_LOGIC}
 """
