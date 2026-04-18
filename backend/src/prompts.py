@@ -2,32 +2,35 @@
 
 # 1. ESQUEMA TÉCNICO DE LA BASE DE DATOS (Metadata)
 # Esto garantiza que el LLM no invente nombres de columnas.
+# src/prompts.py (Actualización de esquema real)
+
 DB_SCHEMA = """
 TABLAS DISPONIBLES EN SQLITE:
 
 1. Tabla: comercios
-   - id_comercio (PK)
-   - dueño (Nombre del propietario)
-   - comercio_nombre (Nombre del negocio)
-   - ciudad (Quito, Guayaquil, etc.)
-   - rubro (Restaurante, Tienda, etc.)
+   - id (PK): Identificador del comercio (ej. COM-001).
+   - dueño: Nombre del dueño.
+   - nombre: Nombre comercial del negocio.
+   - ciudad: Ciudad (Quito, Guayaquil, Cuenca).
+   - rubro: Categoría (Abarrotes, Papelería, Farmacia).
 
 2. Tabla: clientes
-   - id_cliente (PK)
-   - fecha_registro (YYYY-MM-DD)
-   - segmento (Frecuente, Esporádico, En riesgo de abandono)
+   - id_cliente (PK): Identificador del cliente.
+   - id_comercio: El comercio donde compra habitualmente.
+   - fecha_registro: Fecha de registro (YYYY-MM-DD).
+   - segmento: Frecuente, Esporádico, etc.
 
 3. Tabla: transacciones
-   - id_txn (PK)
-   - id_comercio (FK)
-   - id_cliente (FK)
-   - fecha_hora (Formato: YYYY-MM-DD HH:MM:SS)
-   - monto_total (Monto pagado)
-   - costo_estimado (Costo del insumo)
-   - ganancia_neta (monto_total - costo_estimado)
-   - categoria_compra (Bebidas, Almuerzos, etc.)
-   - estado (Exitosa, Reversada)
-   - metodo_pago (QR Deuna, Transferencia, Efectivo)
+   - id_txn (PK): Identificador de la venta.
+   - id_comercio: ID del negocio que vendió.
+   - id_cliente: ID del cliente que compró.
+   - fecha_hora: Fecha y hora (YYYY-MM-DD HH:MM).
+   - monto_total: Valor de la venta.
+   - costo_estimado: Costo de insumo.
+   - ganancia_neta: Utilidad neta.
+   - categoria_compra: Categoría del producto (Bebidas, Snacks, etc).
+   - estado: Exitosa, Fallida, etc.
+   - metodo_pago: QR Deuna, etc.
 """
 
 # 2. GLOSARIO DE NEGOCIO (Contexto Deuna)
