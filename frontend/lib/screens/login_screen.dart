@@ -63,6 +63,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final fieldsTopSpacing = screenHeight * 0.12;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -71,16 +74,6 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── Back arrow ────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.only(left: 8, top: 8),
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                      size: 20, color: Colors.black87),
-                  onPressed: () {},
-                ),
-              ),
-
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -92,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       // ── Logo deuna! ─────────────────────────────────────
                       _buildLogo(),
 
-                      const SizedBox(height: 48),
+                      SizedBox(height: fieldsTopSpacing.clamp(72.0, 132.0)),
 
                       // ── Campo usuario ────────────────────────────────────
                       _buildUserField(),
@@ -155,21 +148,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildLogo() {
     return Column(
       children: [
-        // "deuna!" en tipografía cursiva negrita morada
-        Text(
-          'deuna!',
-          style: TextStyle(
-            fontSize: 44,
-            fontWeight: FontWeight.w900,
-            fontStyle: FontStyle.italic,
-            color: _brandColor,
-            letterSpacing: -1,
-          ),
+        Image.asset(
+          'lib/images/Deuna!_icono.svg.png',
+          height: 120,
+          fit: BoxFit.contain,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         // Badge "Negocios" teal
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
             color: _tealColor,
             borderRadius: BorderRadius.circular(6),

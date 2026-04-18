@@ -26,29 +26,18 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final ScrollController _quickScrollController = ScrollController();
   final ApiService _apiService = ApiService();
+  final List<String> _visibleQuickReplies = [];
   bool _isLoading = false;
-  bool _isQuickRepliesAtBottom = false;
 
   static const double _itemHeight = 52.0;
   static const double _itemSeparator = 8.0;
-
-  // Preguntas rápidas predefinidas
-  static const List<String> _quickReplies = [
-    '¿Qué servicios ofrecen?',
-    '¿Cómo puedo hacer un pago?',
-    '¿Cuáles son los horarios de atención?',
-    '¿Cómo creo una cuenta?',
-    '¿Cómo reporto un problema?',
-  ];
 
   static const Color _brandColor = Color(0xFF5B21B6);
 
   @override
   void initState() {
     super.initState();
-    _quickScrollController.addListener(_updateQuickRepliesPosition);
     _messages.add(ChatMessage(
       text: '¡Hola! Soy tu asistente virtual de DeUna 👋\n¿En qué puedo ayudarte hoy?',
       isUser: false,
@@ -56,17 +45,15 @@ class _ChatScreenState extends State<ChatScreen> {
     ));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _updateQuickRepliesPosition();
+        _loadQuickReplies();
       }
     });
   }
 
   @override
   void dispose() {
-    _quickScrollController.removeListener(_updateQuickRepliesPosition);
     _controller.dispose();
     _scrollController.dispose();
-    _quickScrollController.dispose();
     super.dispose();
   }
 
@@ -82,23 +69,74 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void _updateQuickRepliesPosition() {
-    if (!_quickScrollController.hasClients) return;
-    final position = _quickScrollController.position;
-    if (!position.hasContentDimensions) return;
+  Future<void> _loadQuickReplies() async {
+    final suggestions = await _apiService.fetchSuggestedQuestions();
+    if (!mounted) return;
 
-    final atBottom =
-        position.maxScrollExtent > 0 && position.pixels >= position.maxScrollExtent;
-
-    if (_isQuickRepliesAtBottom != atBottom && mounted) {
-      setState(() {
-        _isQuickRepliesAtBottom = atBottom;
-      });
-    }
+    final randomized = List<String>.of(suggestions)..shuffle();
+    setState(() {
+      _visibleQuickReplies
+        ..clear()
+        ..addAll(randomized.take(3));
+    });
   }
 
-  Future<void> _sendMessage(String text) async {
-    final trimmed = text.trim();
+  String _sanitizeInput(Object? value) {
+    return value?.toString().trim() ?? '';
+  }
+
+  Future<void> _handleMessageSubmit(Object? text) async {
+    final trimmed = _sanitizeInput(text);
+    if (trimmed.isEmpty || _isLoading) return;
+
+    final warning = await _apiService.checkAmbiguousQuestion(trimmed);
+    if (!mounted) return;
+
+    if (warning != null) {
+      final shouldContinue = await _showAmbiguityWarning(warning);
+      if (shouldContinue != true) return;
+    }
+
+    await _sendMessage(trimmed);
+  }
+
+  Future<bool?> _showAmbiguityWarning(AmbiguousQuestionWarning warning) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(warning.title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(warning.message),
+              if (warning.relatedQuestion != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Ejemplo relacionado: ${warning.relatedQuestion}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Editar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Enviar igual'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _sendMessage(Object? text) async {
+    final trimmed = _sanitizeInput(text);
     if (trimmed.isEmpty || _isLoading) return;
 
     setState(() {
@@ -109,6 +147,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
 
     final response = await _apiService.askQuestion(trimmed);
+    if (!mounted) return;
 
     setState(() {
       _messages.add(ChatMessage(text: response, isUser: false, timestamp: DateTime.now()));
@@ -123,12 +162,33 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       appBar: _buildAppBar(),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(child: _buildMessageList()),
-          _buildQuickReplies(),
-          _buildInputBar(),
+          _buildBackgroundLogo(),
+          Column(
+            children: [
+              Expanded(child: _buildMessageList()),
+              _buildQuickReplies(),
+              _buildInputBar(),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBackgroundLogo() {
+    return IgnorePointer(
+      child: Align(
+        alignment: const Alignment(0, -0.12),
+        child: Opacity(
+          opacity: 0.3,
+          child: Image.asset(
+            'lib/images/deunalogo.png',
+            width: 400,
+            fit: BoxFit.contain,
+          ),
+        ),
       ),
     );
   }
@@ -138,24 +198,29 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: _brandColor,
       foregroundColor: Colors.white,
       elevation: 0,
+      toolbarHeight: 66,
+      titleSpacing: 10,
       title: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           CircleAvatar(
-            radius: 18,
+            radius: 27,
             backgroundColor: Colors.white24,
-            child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 20),
+            child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 32),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           const Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Asistente DeUna',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               Text(
                 '● En línea',
-                style: TextStyle(fontSize: 11, color: Color(0xFF86EFAC)),
+                style: TextStyle(fontSize: 15, color: Color(0xFF86EFAC)),
               ),
             ],
           ),
@@ -215,7 +280,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 message.text,
                 style: TextStyle(
                   color: isUser ? Colors.white : const Color(0xFF1F2937),
-                  fontSize: 14.5,
+                  fontSize: 20,
                   height: 1.4,
                 ),
               ),
@@ -269,59 +334,26 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   // ── Quick replies ──────────────────────────────────────────────────────────
-  void _scrollQuickReplies() {
-    if (!_quickScrollController.hasClients) return;
-    final step = _itemHeight + _itemSeparator;
-    final max = _quickScrollController.position.maxScrollExtent;
-    final next = _quickScrollController.offset + step;
-    _quickScrollController.animateTo(
-      next > max ? 0 : next,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
-  }
-
   Widget _buildQuickReplies() {
-    const visibleCount = 3;
-    final listHeight =
-        visibleCount * _itemHeight + (visibleCount - 1) * _itemSeparator;
+    if (_visibleQuickReplies.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            height: listHeight,
-            child: ListView.separated(
-              controller: _quickScrollController,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _quickReplies.length,
-              separatorBuilder: (context, index) =>
-                  SizedBox(height: _itemSeparator),
-              itemBuilder: (context, index) => SizedBox(
-                height: _itemHeight,
-                child: _QuickReplyItem(
-                  text: _quickReplies[index],
-                  disabled: _isLoading,
-                  onTap: () => _sendMessage(_quickReplies[index]),
-                ),
-              ),
+          for (var index = 0; index < _visibleQuickReplies.length; index++) ...[
+            _QuickReplyItem(
+              text: _visibleQuickReplies[index],
+              disabled: _isLoading,
+              onTap: () => _handleMessageSubmit(_visibleQuickReplies[index]),
             ),
-          ),
-          GestureDetector(
-            onTap: _scrollQuickReplies,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Icon(
-                _isQuickRepliesAtBottom
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
-                color: _brandColor.withValues(alpha: 0.55),
-                size: 26,
-              ),
-            ),
-          ),
+            if (index != _visibleQuickReplies.length - 1)
+              SizedBox(height: _itemSeparator),
+          ],
         ],
       ),
     );
@@ -354,14 +386,17 @@ class _ChatScreenState extends State<ChatScreen> {
                     controller: _controller,
                     enabled: !_isLoading,
                     textCapitalization: TextCapitalization.sentences,
-                    onSubmitted: _sendMessage,
+                    onSubmitted: _handleMessageSubmit,
                     decoration: InputDecoration(
                       hintText: 'Escribe tu pregunta...',
-                      hintStyle: TextStyle(color: Colors.grey.shade400),
+                      hintStyle: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 20,
+                      ),
                       filled: true,
                       fillColor: Colors.transparent,
                       contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none,
@@ -372,11 +407,11 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: _isLoading ? null : () => _sendMessage(_controller.text),
+                onTap: _isLoading ? null : () => _handleMessageSubmit(_controller.text),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   width: 44,
-                  height: 44,
+                  height: 60,
                   decoration: BoxDecoration(
                     color: _isLoading ? Colors.grey.shade300 : _brandColor,
                     shape: BoxShape.circle,
@@ -393,7 +428,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Icon(
                     Icons.send_rounded,
                     color: _isLoading ? Colors.grey : Colors.white,
-                    size: 20,
+                    size: 30,
                   ),
                 ),
               ),
@@ -512,46 +547,65 @@ class _QuickReplyItemState extends State<_QuickReplyItem>
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxBubbleWidth = screenWidth * 0.82;
+    final fontSize = screenWidth < 380 ? 14.5 : 16.0;
+
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
       children: [
-        GestureDetector(
-          onTap: _handleTap,
-          child: AnimatedBuilder(
-            animation: _borderOpacity,
-            builder: (context, child) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                decoration: BoxDecoration(
-                  color: widget.disabled
-                      ? Colors.grey.shade100
-                      : Colors.white.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(
-                    color: widget.disabled
-                        ? Colors.grey.shade300
-                        : _brandColor.withValues(alpha: _borderOpacity.value),
-                    width: 0.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
+        Flexible(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              onTap: _handleTap,
+              child: AnimatedBuilder(
+                animation: _borderOpacity,
+                builder: (context, child) {
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: maxBubbleWidth,
+                      minHeight: _ChatScreenState._itemHeight,
                     ),
-                  ],
-                ),
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  widget.text,
-                  style: TextStyle(
-                    color: widget.disabled ? Colors.grey : _brandColor,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              );
-            },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: widget.disabled
+                            ? Colors.grey.shade100
+                            : Colors.white.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(
+                          color: widget.disabled
+                              ? Colors.grey.shade300
+                              : _brandColor.withValues(alpha: _borderOpacity.value),
+                          width: 0.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        widget.text,
+                        softWrap: true,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: widget.disabled ? Colors.grey : _brandColor,
+                          fontSize: fontSize,
+                          fontWeight: FontWeight.w500,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
         ),
       ],

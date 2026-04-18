@@ -14,7 +14,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   static const Color _brandColor = Color(0xFF5B21B6);
-  static const Color _tealColor = Color(0xFF0F766E);
 
   late TabController _tabController;
   bool _balanceVisible = false;
@@ -73,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen>
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.storefront_rounded,
-                color: _brandColor, size: 26),
+                color: Color(0xFF5B21B6), size: 26),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -118,7 +117,7 @@ class _HomeScreenState extends State<HomeScreen>
                 Text(
                   widget.user.displayName,
                   style:
-                      TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                      TextStyle(color: const Color(0xFF9E9E9E), fontSize: 12),
                 ),
               ],
             ),
@@ -341,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen>
             width: 60,
             height: 42,
             decoration: BoxDecoration(
-              color: _tealColor,
+              color: const Color(0xFF0F766E),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Center(
