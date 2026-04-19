@@ -257,8 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
           borderSide: const BorderSide(color: Colors.red, width: 1.5),
         ),
       ),
-      validator: (v) =>
-          (v == null || v.length < 4) ? 'Clave muy corta' : null,
+      validator: (_) => null,
     );
   }
 

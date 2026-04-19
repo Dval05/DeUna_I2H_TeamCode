@@ -32,7 +32,26 @@ class ApiService {
   // ¡Importante! Asegúrate de que tu PC y el dispositivo/emulador estén en la misma red si usas IP local.
   // Para el reto, puedes usar 'http://localhost:5000' y configurar el emulador si es necesario,
   // o usar la IP local de tu máquina si pruebas en un dispositivo físico.
-  final String _baseUrl = kDebugMode ? 'http://10.0.2.2:5000' : 'http://tu_ip_produccion:5000'; // Ajusta según tu entorno
+  String get _baseUrl {
+    if (!kDebugMode) {
+      return 'http://tu_ip_produccion:8000';
+    }
+
+    if (kIsWeb) {
+      return 'http://localhost:8000';
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'http://10.0.2.2:8000';
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+      case TargetPlatform.fuchsia:
+        return 'http://localhost:8000';
+    }
+  }
 
   static const List<String> _fallbackQuickReplies = [
     '¿Cuánto vendí en total el día de hoy?',
@@ -151,7 +170,7 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
-        return responseData['respuesta'] ?? 'No se recibió una respuesta válida.';
+        return responseData['answer'] ?? 'No se recibió una respuesta válida.';
       } else {
         // Manejar errores de la API de forma más detallada
         debugPrint('Error de API (${response.statusCode}): ${response.body}');
@@ -179,20 +198,6 @@ class ApiService {
   //
   // TODO: ajustar el endpoint y los campos del JSON cuando el backend esté listo.
   Future<UserModel> login(String username, String password) async {
-    // ── Placeholder mock (eliminar cuando el backend esté disponible) ──────
-    if (kDebugMode) {
-      await Future.delayed(const Duration(milliseconds: 800)); // simula latencia
-      if (username.trim().isEmpty || password.length < 4) {
-        throw Exception('Usuario o contraseña incorrectos.');
-      }
-      return UserModel(
-        username: username.trim(),
-        fullName: '${username.trim()} Usuario Placeholder',
-        role: 'Admin',
-        token: 'mock-token-dev-only',
-      );
-    }
-    // ── Llamada real al backend ────────────────────────────────────────────
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/auth/login'),
@@ -206,8 +211,8 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return UserModel.fromJson(data);
-      } else if (response.statusCode == 401) {
-        throw Exception('Usuario o contraseña incorrectos.');
+      } else if (response.statusCode == 400) {
+        throw Exception('Ingresa tu usuario.');
       } else {
         throw Exception('Error del servidor (${response.statusCode}). Intenta más tarde.');
       }
