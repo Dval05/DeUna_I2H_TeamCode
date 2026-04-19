@@ -25,12 +25,12 @@ class AmbiguousQuestionWarning {
 }
 
 class ApiService {
-  // Configura la URL base del backend Flask.
-  // Para emulador Android: 'http://10.0.2.2:5000'
-  // Para iOS Simulator: 'http://localhost:5000'
-  // Para dispositivo físico en la misma red: la IP de tu PC en la red local (ej. 'http://192.168.1.100:5000')
+  // Configura la URL base del backend FastAPI.
+  // Para emulador Android: 'http://10.0.2.2:8000'
+  // Para iOS Simulator: 'http://localhost:8000'
+  // Para dispositivo físico en la misma red: la IP de tu PC en la red local (ej. 'http://192.168.1.100:8000')
   // ¡Importante! Asegúrate de que tu PC y el dispositivo/emulador estén en la misma red si usas IP local.
-  // Para el reto, puedes usar 'http://localhost:5000' y configurar el emulador si es necesario,
+  // Para el reto, puedes usar 'http://localhost:8000' y configurar el emulador si es necesario,
   // o usar la IP local de tu máquina si pruebas en un dispositivo físico.
   String get _baseUrl {
     if (!kDebugMode) {
@@ -43,7 +43,7 @@ class ApiService {
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return 'http://127.0.0.1:8000';
+        return 'http://10.0.2.2:8000';
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:
       case TargetPlatform.windows:
@@ -88,10 +88,6 @@ class ApiService {
   };
 
   Future<List<String>> fetchSuggestedQuestions() async {
-    if (kDebugMode) {
-      return List<String>.from(_fallbackQuickReplies);
-    }
-
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/chat/suggested-questions'),
@@ -121,19 +117,6 @@ class ApiService {
   Future<AmbiguousQuestionWarning?> checkAmbiguousQuestion(String question) async {
     final normalized = question.toLowerCase();
 
-    if (kDebugMode) {
-      for (final entry in _debugAmbiguousRules.entries) {
-        if (normalized.contains(entry.key)) {
-          return AmbiguousQuestionWarning(
-            title: entry.value['title']!,
-            message: entry.value['message']!,
-            relatedQuestion: entry.value['relatedQuestion'],
-          );
-        }
-      }
-      return null;
-    }
-
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/chat/ambiguity-check'),
@@ -152,10 +135,22 @@ class ApiService {
       debugPrint('No se pudo validar ambigüedad de la pregunta: $e');
     }
 
+    if (kDebugMode) {
+      for (final entry in _debugAmbiguousRules.entries) {
+        if (normalized.contains(entry.key)) {
+          return AmbiguousQuestionWarning(
+            title: entry.value['title']!,
+            message: entry.value['message']!,
+            relatedQuestion: entry.value['relatedQuestion'],
+          );
+        }
+      }
+    }
+
     return null;
   }
 
-  // Método para enviar una pregunta al backend Flask
+  // Método para enviar una pregunta al backend FastAPI
   Future<String> askQuestion(String question) async {
     try {
       final response = await http.post(
@@ -198,20 +193,6 @@ class ApiService {
   //
   // TODO: ajustar el endpoint y los campos del JSON cuando el backend esté listo.
   Future<UserModel> login(String username, String password) async {
-    // ── Placeholder mock (eliminar cuando el backend esté disponible) ──────
-    if (kDebugMode) {
-      await Future.delayed(const Duration(milliseconds: 800)); // simula latencia
-      if (username.trim().isEmpty || password.length < 4) {
-        throw Exception('Usuario o contraseña incorrectos.');
-      }
-      return UserModel(
-        username: username.trim(),
-        fullName: '${username.trim()} Usuario Placeholder',
-        role: 'Admin',
-        token: 'mock-token-dev-only',
-      );
-    }
-    // ── Llamada real al backend ────────────────────────────────────────────
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/auth/login'),
@@ -231,8 +212,21 @@ class ApiService {
         throw Exception('Error del servidor (${response.statusCode}). Intenta más tarde.');
       }
     } catch (e) {
-      if (e is Exception) rethrow;
-      throw Exception('No se pudo conectar al servidor.');
+      if (!kDebugMode) {
+        if (e is Exception) rethrow;
+        throw Exception('No se pudo conectar al servidor.');
+      }
+
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (username.trim().isEmpty || password.length < 4) {
+        throw Exception('Usuario o contraseña incorrectos.');
+      }
+      return UserModel(
+        username: username.trim(),
+        fullName: '${username.trim()} Usuario Placeholder',
+        role: 'Admin',
+        token: 'mock-token-dev-only',
+      );
     }
   }
 }

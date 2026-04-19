@@ -2,7 +2,7 @@ import os
 import re
 from groq import Groq
 from dotenv import load_dotenv
-from .prompts import SYSTEM_PROMPT, HUMANIZER_PROMPT
+from .prompts import SQLITE_SYSTEM_PROMPT, POSTGRES_SYSTEM_PROMPT, HUMANIZER_PROMPT
 
 # Cargar variables de entorno
 load_dotenv()
@@ -21,10 +21,13 @@ def get_sql_from_question(question: str):
         if client is None:
             print("⚠️ GROQ_API_KEY no configurada")
             return {"sql": None, "chart": "NONE"}
+        db_engine = os.getenv("DB_ENGINE", "sqlite").lower()
+        system_prompt = POSTGRES_SYSTEM_PROMPT if db_engine == "postgres" else SQLITE_SYSTEM_PROMPT
+
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",  # El más rápido para SQL
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": question}
             ],
             temperature=0.1, # Precisión máxima

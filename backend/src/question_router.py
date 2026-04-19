@@ -1,3 +1,4 @@
+import os
 import re
 import unicodedata
 from typing import Optional, Dict
@@ -11,6 +12,39 @@ def _normalize(text: str) -> str:
     return " ".join(text.split())
 
 
+DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
+
+
+def _sql_today() -> str:
+    return "CURRENT_DATE" if DB_ENGINE == "postgres" else "date('now')"
+
+
+def _sql_days_ago(days: int) -> str:
+    if DB_ENGINE == "postgres":
+        return f"(CURRENT_DATE - INTERVAL '{days} days')"
+    return f"date('now', '-{days} days')"
+
+
+def _sql_month_start(offset_months: int = 0) -> str:
+    if DB_ENGINE == "postgres":
+        if offset_months == 0:
+            return "DATE_TRUNC('month', CURRENT_DATE)::date"
+        return f"DATE_TRUNC('month', CURRENT_DATE + INTERVAL '{offset_months} month')::date"
+    if offset_months == 0:
+        return "date('now', 'start of month')"
+    return f"date('now', 'start of month', '{offset_months} month')"
+
+
+def _sql_current_month_label() -> str:
+    return "to_char(CURRENT_DATE, 'YYYY-MM')" if DB_ENGINE == "postgres" else "strftime('%Y-%m', 'now')"
+
+
+def _sql_last_sunday() -> str:
+    if DB_ENGINE == "postgres":
+        return "(DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '1 day')::date"
+    return "date('now', 'weekday 0', '-7 days')"
+
+
 def route_question(question: str) -> Optional[Dict[str, str]]:
     q = _normalize(question)
 
@@ -19,7 +53,7 @@ def route_question(question: str) -> Optional[Dict[str, str]]:
             "sql": (
                 "SELECT COALESCE((SELECT total_sales "
                 "FROM mv_sales_daily "
-                "WHERE day = date('now')), 0) AS total_ventas_hoy;"
+                f"WHERE day = {_sql_today()}), 0) AS total_ventas_hoy;"
             ),
             "chart": "NONE",
             "source": "materialized"
@@ -30,7 +64,7 @@ def route_question(question: str) -> Optional[Dict[str, str]]:
             "sql": (
                 "SELECT COALESCE(SUM(total_profit), 0) AS ganancia_semana "
                 "FROM mv_sales_daily "
-                "WHERE day >= date('now', '-7 days');"
+                f"WHERE day >= {_sql_days_ago(7)};"
             ),
             "chart": "NONE",
             "source": "materialized"
@@ -74,7 +108,7 @@ def route_question(question: str) -> Optional[Dict[str, str]]:
             "sql": (
                 "SELECT metodo_pago, total_sales "
                 "FROM mv_payment_monthly "
-                "WHERE month = strftime('%Y-%m', 'now');"
+                f"WHERE month = {_sql_current_month_label()};"
             ),
             "chart": "BAR",
             "source": "materialized"
@@ -85,7 +119,7 @@ def route_question(question: str) -> Optional[Dict[str, str]]:
             "sql": (
                 "SELECT COALESCE((SELECT total_sales "
                 "FROM mv_sales_daily "
-                "WHERE day = date('now', 'weekday 0', '-7 days')), 0) "
+                f"WHERE day = {_sql_last_sunday()}), 0) "
                 "AS ventas_domingo_pasado;"
             ),
             "chart": "NONE",
@@ -105,13 +139,13 @@ def route_question(question: str) -> Optional[Dict[str, str]]:
                 "SELECT 'este_mes' AS periodo, "
                 "COALESCE(SUM(total_profit), 0) AS ganancia "
                 "FROM mv_sales_daily "
-                "WHERE day >= date('now', 'start of month') "
+                f"WHERE day >= {_sql_month_start(0)} "
                 "UNION ALL "
                 "SELECT 'mes_pasado' AS periodo, "
                 "COALESCE(SUM(total_profit), 0) AS ganancia "
                 "FROM mv_sales_daily "
-                "WHERE day >= date('now', 'start of month', '-1 month') "
-                "AND day < date('now', 'start of month');"
+                f"WHERE day >= {_sql_month_start(-1)} "
+                f"AND day < {_sql_month_start(0)};"
             ),
             "chart": "BAR",
             "source": "materialized"
@@ -122,7 +156,7 @@ def route_question(question: str) -> Optional[Dict[str, str]]:
             "sql": (
                 "SELECT id_cliente "
                 "FROM mv_customer_last_txn "
-                "WHERE last_txn_date < date('now', '-30 days');"
+                f"WHERE last_txn_date < {_sql_days_ago(30)};"
             ),
             "chart": "NONE",
             "source": "materialized"
@@ -157,7 +191,7 @@ def route_question(question: str) -> Optional[Dict[str, str]]:
             "sql": (
                 "SELECT COALESCE(SUM(new_customers), 0) AS nuevos_semana "
                 "FROM mv_customers_registration_daily "
-                "WHERE day >= date('now', '-7 days');"
+                f"WHERE day >= {_sql_days_ago(7)};"
             ),
             "chart": "NONE",
             "source": "materialized"
@@ -168,7 +202,7 @@ def route_question(question: str) -> Optional[Dict[str, str]]:
             "sql": (
                 "SELECT COUNT(*) AS clientes_recompra "
                 "FROM mv_customer_first_txn "
-                "WHERE first_txn_date >= date('now', '-7 days') "
+                f"WHERE first_txn_date >= {_sql_days_ago(7)} "
                 "AND txn_count > 1;"
             ),
             "chart": "NONE",
