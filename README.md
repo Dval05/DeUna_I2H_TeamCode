@@ -3,4 +3,4 @@
 - Andrade Danna
 - Pilaguano David
 - Ortega Enrique
-- Crisantos Mateo
+- Crisanto Mateo
