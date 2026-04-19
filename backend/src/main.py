@@ -1,14 +1,18 @@
 import asyncio
 import os
+import re
+import unicodedata
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 from .llama_service import get_sql_from_question, humanize_results
-from .database import execute_read_query
+from .database import execute_read_query, has_base_tables
 from .materialized_views import refresh_materialized_views
 from .question_router import route_question
 ##from .cache_manager import obtener_de_cache, guardar_en_cache
+
+APP_VERSION = "debug-1"
 
 app = FastAPI(title="Deuna Contador de Bolsillo API")
 
@@ -32,6 +36,13 @@ class LoginRequest(BaseModel):
 class AmbiguityRequest(BaseModel):
     question: str
 
+def _normalize_short(text: str) -> str:
+    text = text.lower().strip()
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = re.sub(r"[^\w\s]", "", text)
+    return " ".join(text.split())
+
 def _get_refresh_minutes() -> int:
     raw_value = os.getenv("MATERIALIZED_REFRESH_MINUTES", "10")
     try:
@@ -47,18 +58,32 @@ async def _materialized_refresh_loop(refresh_minutes: int):
 
 @app.on_event("startup")
 async def startup_refresh():
-    refresh_materialized_views(full_refresh=True)
+    if has_base_tables():
+        refresh_materialized_views(full_refresh=True)
+    else:
+        print("⚠️ Tablas base no encontradas. Ejecuta la ingesta de datos primero.")
     refresh_minutes = _get_refresh_minutes()
     if refresh_minutes > 0:
         asyncio.create_task(_materialized_refresh_loop(refresh_minutes))
 
 @app.get("/")
 def read_root():
-    return {"status": "online", "message": "Backend de IA para Deuna listo"}
+    return {
+        "status": "online",
+        "message": "Backend de IA para Deuna listo",
+        "version": APP_VERSION,
+    }
 
 @app.post("/ask")
 async def ask_ai(request: QuestionRequest):
     user_query = request.question.strip()
+    normalized = _normalize_short(user_query)
+    if normalized in {"hola", "buenas", "buenos dias", "buenas tardes", "buenas noches"}:
+        return {
+            "answer": "Hola. Puedes preguntarme sobre ventas, clientes o transacciones de Deuna.",
+            "chart": "NONE",
+            "source": "rule",
+        }
     
     # 1. Intentar obtener del REPERTORIO (Caché)
     ## cached_response = obtener_de_cache(user_query)
@@ -71,6 +96,12 @@ async def ask_ai(request: QuestionRequest):
       ##  }
 
     # 2. Intentar ruteo a vistas materializadas
+    if not has_base_tables():
+        return {
+            "answer": "No hay datos cargados. Ejecuta la ingesta de datos antes de consultar.",
+            "chart": "NONE",
+            "source": "no_data",
+        }
     routed = route_question(user_query)
     if routed:
         sql = routed["sql"]
@@ -100,7 +131,11 @@ async def ask_ai(request: QuestionRequest):
     data_results = execute_read_query(sql)
     
     if data_results is None:
-        raise HTTPException(status_code=500, detail="Error ejecutando la consulta en la base de datos")
+        return {
+            "answer": "No pude procesar tu consulta. Intenta con una pregunta mas especifica.",
+            "chart": "NONE",
+            "source": "db_error",
+        }
 
     # 5. Humanizar el resultado
     final_answer = humanize_results(user_query, data_results)

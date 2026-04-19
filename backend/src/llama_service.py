@@ -9,7 +9,8 @@ load_dotenv()
 
 # Inicializar cliente de Groq
 # Recuerda que en el .env debe estar: GROQ_API_KEY=gsk_...
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+_groq_key = os.getenv("GROQ_API_KEY")
+client = Groq(api_key=_groq_key) if _groq_key else None
 
 def get_sql_from_question(question: str):
     """
@@ -17,6 +18,9 @@ def get_sql_from_question(question: str):
     Retorna un diccionario con {'sql': str, 'chart': str}
     """
     try:
+        if client is None:
+            print("⚠️ GROQ_API_KEY no configurada")
+            return {"sql": None, "chart": "NONE"}
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",  # El más rápido para SQL
             messages=[
@@ -52,6 +56,8 @@ def humanize_results(question: str, data_results: list):
     Paso 2: Traduce los datos crudos a una respuesta amigable.
     """
     try:
+        if client is None:
+            return "He obtenido los datos, pero falta configurar la IA para explicar el resultado."
         # Convertimos la lista de resultados a string para el prompt
         data_str = str(data_results)
         

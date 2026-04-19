@@ -2,6 +2,7 @@ import sqlite3
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import re
 
 # Cargamos la ruta desde el .env
 load_dotenv()
@@ -28,6 +29,9 @@ def execute_read_query(sql_query: str):
     """
     conn = None
     try:
+        if not _is_safe_select(sql_query):
+            print("⚠️ SQL bloqueado por seguridad")
+            return None
         # 1. Conexión a la base de datos
         conn = sqlite3.connect(_resolve_db_path())
         
@@ -53,6 +57,42 @@ def execute_read_query(sql_query: str):
     finally:
         if conn:
             conn.close()
+
+def has_base_tables() -> bool:
+    """
+    Verifica si existen las tablas base requeridas.
+    """
+    conn = None
+    try:
+        conn = sqlite3.connect(_resolve_db_path())
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('transacciones', 'clientes', 'comercios');"
+        )
+        rows = cursor.fetchall()
+        return len(rows) == 3
+    except sqlite3.Error as e:
+        print(f"⚠️ Error verificando tablas base: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def _is_safe_select(sql_query: str) -> bool:
+    if not sql_query:
+        return False
+    stripped = sql_query.strip()
+    # Allow a single trailing semicolon, but block multiple statements.
+    if stripped.endswith(";"):
+        stripped = stripped[:-1].rstrip()
+    if ";" in stripped:
+        return False
+    lowered = stripped.lower()
+    if not (lowered.startswith("select") or lowered.startswith("with")):
+        return False
+    if re.search(r"\b(insert|update|delete|drop|alter|create|attach|detach|pragma|vacuum)\b", lowered):
+        return False
+    return True
 
 def execute_write_query(sql_query: str):
     """
